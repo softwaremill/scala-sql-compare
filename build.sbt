@@ -7,7 +7,7 @@ lazy val commonSettings = Seq(
   organization := "com.softwaremill",
   version := "1.0-SNAPSHOT",
   scalaVersion := "2.11.8",
-  libraryDependencies ++= Seq("com.h2database" % "h2" % "1.4.194")
+  libraryDependencies ++= Seq("org.postgresql" % "postgresql" % "42.0.0")
 )
 
 lazy val scalaSqlCompare = (project in file("."))

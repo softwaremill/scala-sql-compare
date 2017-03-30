@@ -1,14 +1,18 @@
-INSERT INTO "city"("id", "name", "population", "area", "link") VALUES
+INSERT INTO city(id, name, population, area, link) VALUES
     (1, 'Warszawa', 1748916, 517.24, 'http://www.um.warszawa.pl/en'),
     (2, 'Paris', 2243833, 105.4, 'http://paris.fr'),
-    (3, 'Chongqing', 49165500, 82403, NULL);
+    (3, 'Chongqing', 49165500, 82403, NULL) RETURNING id;
 
-INSERT INTO "metro_system"("id", "city_id", "name", "daily_ridership") VALUES
+ALTER SEQUENCE city_id_seq RESTART WITH 4;
+
+INSERT INTO metro_system(id, city_id, name, daily_ridership) VALUES
     (10, 1, 'Metro Warszawskie', 568000),
     (20, 2, 'Métro de Paris', 4160000),
     (30, 3, 'Chongqing Metro', 1730000);
 
-INSERT INTO "metro_line"("id", "system_id", "name", "station_count", "track_type") VALUES
+ALTER SEQUENCE metro_system_id_seq RESTART WITH 40;
+
+INSERT INTO metro_line(id, system_id, name, station_count, track_type) VALUES
     (100, 10, 'M1', 21, 1),
     (101, 10, 'M2', 7, 1),
     (200, 20, '1', 25, 3),
@@ -31,3 +35,5 @@ INSERT INTO "metro_line"("id", "system_id", "name", "station_count", "track_type
     (301, 30, '2', 25, 2),
     (302, 30, '3', 45, 2),
     (303, 30, '6', 33, 1);
+
+ALTER SEQUENCE metro_line_id_seq RESTART WITH 400;
