@@ -1,6 +1,8 @@
 package com.softwaremill.sql
 
 import com.softwaremill.sql.TrackType.TrackType
+import org.flywaydb.core.Flyway
+import slick.dbio.DBIOAction
 import slick.jdbc.{JdbcProfile, PostgresProfile}
 import slick.jdbc.JdbcBackend._
 
@@ -73,9 +75,16 @@ trait Schema {
 }
 
 object SlickTest extends App with Schema {
-  val db = Database.forURL("jdbc:postgresql:sql_compare", driver = "org.postgresql.Driver")
+  val connectionString = "jdbc:postgresql:sql_compare"
+
+  val db = Database.forURL(connectionString, driver = "org.postgresql.Driver")
   val jdbcProfile = PostgresProfile
-  
+
+  val flyway = new Flyway()
+  flyway.setDataSource(connectionString, null, null)
+  flyway.clean()
+  flyway.migrate()
+
   try {
     import jdbcProfile.api._
 
