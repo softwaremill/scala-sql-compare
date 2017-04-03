@@ -1,7 +1,10 @@
 package com.softwaremill.sql
 
 import doobie.imports._
-import cats._, cats.data._, cats.implicits._
+import cats._
+import cats.data._
+import cats.implicits._
+import com.softwaremill.sql.TrackType.TrackType
 import fs2.interop.cats._
 
 object DoobieTests extends App with DbSetup {
@@ -9,6 +12,11 @@ object DoobieTests extends App with DbSetup {
 
   val xa = DriverManagerTransactor[IOLite](
     "org.postgresql.Driver", "jdbc:postgresql:sql_compare", null, null)
+
+  implicit val trackTypeMeta: Meta[TrackType] =
+    Meta[Int].xmap(
+      id => TrackType.values.find(_.id == id).getOrElse(throw new IllegalArgumentException(s"Unknown track type: $id")),
+      _.id)
 
   def insertWithGeneratedId(): Unit = {
     def insertCity(name: String, population: Int, area: Float, link: Option[String]): ConnectionIO[City] = {
@@ -28,6 +36,14 @@ object DoobieTests extends App with DbSetup {
       .list
 
     runAndLogResults("All cities", program)
+  }
+
+  def selectAllLines(): Unit = {
+    val program = sql"select id, system_id, name, station_count, track_type from metro_line"
+      .query[MetroLine]
+      .list
+
+    runAndLogResults("All lines", program)
   }
 
   def selectNamesOfBig(): Unit = {
@@ -50,6 +66,62 @@ object DoobieTests extends App with DbSetup {
     runAndLogResults("Metro systems with city names", program)
   }
 
+  def selectMetroLinesSortedByStations(): Unit = {
+    case class MetroLineWithSystemCityNames(metroLineName: String, metroSystemName: String, cityName: String, stationCount: Int)
+
+    val program = sql"""
+      SELECT ml.name, ms.name, c.name, ml.station_count
+        FROM metro_line as ml
+        JOIN metro_system as ms on ml.system_id = ms.id
+        JOIN city AS c ON ms.city_id = c.id
+        ORDER BY ml.station_count DESC
+      """.query[MetroLineWithSystemCityNames].list
+
+    runAndLogResults("Metro lines sorted by station count", program)
+  }
+
+  def selectMetroSystemsWithMostLines(): Unit = {
+    case class MetroSystemWithLineCount(metroSystemName: String, cityName: String, lineCount: Int)
+
+    val program = sql"""
+      SELECT ms.name, c.name, COUNT(ml.id) as line_count
+        FROM metro_line as ml
+        JOIN metro_system as ms on ml.system_id = ms.id
+        JOIN city AS c ON ms.city_id = c.id
+        GROUP BY ms.id, c.id
+        ORDER BY line_count DESC
+      """.query[MetroSystemWithLineCount].list
+
+    runAndLogResults("Metro systems with most lines", program)
+  }
+
+  def selectCitiesWithSystemsAndLines(): Unit = {
+    case class CityWithSystems(id: CityId, name: String, population: Int, area: Float, link: Option[String], systems: Seq[MetroSystemWithLines])
+    case class MetroSystemWithLines(id: MetroSystemId, cityId: CityId, name: String, dailyRidership: Int, lines: Seq[MetroLine])
+
+    val program = sql"""
+      SELECT c.id, c.name, c.population, c.area, c.link, ms.id, ms.city_id, ms.name, ms.daily_ridership, ml.id, ml.system_id, ml.name, ml.station_count, ml.track_type
+        FROM metro_line as ml
+        JOIN metro_system as ms on ml.system_id = ms.id
+        JOIN city AS c ON ms.city_id = c.id
+      """
+      .query[(City, MetroSystem, MetroLine)]
+      .list
+      .map { results =>
+        results.groupBy(_._1)
+          .map { case (c, citiesSystemsLines) =>
+            val systems = citiesSystemsLines.groupBy(_._2)
+              .map { case (s, systemsLines) =>
+                MetroSystemWithLines(s.id, s.cityId, s.name, s.dailyRidership, systemsLines.map(_._3))
+              }
+            CityWithSystems(c.id, c.name, c.population, c.area, c.link, systems.toSeq)
+          }
+      }
+      .map(_.toList)
+
+    runAndLogResults("Cities with list of systems with list of lines", program)
+  }
+
   def checkQuery(): Unit = {
     println("Analyzing query for correctness")
 
@@ -67,7 +139,11 @@ object DoobieTests extends App with DbSetup {
 
   insertWithGeneratedId()
   selectAll()
+  selectAllLines()
   selectNamesOfBig()
   selectMetroSystemsWithCityNames()
+  selectMetroLinesSortedByStations()
+  selectMetroSystemsWithMostLines()
+  selectCitiesWithSystemsAndLines()
   checkQuery()
 }
