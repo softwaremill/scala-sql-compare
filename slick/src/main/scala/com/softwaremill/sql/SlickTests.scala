@@ -1,8 +1,6 @@
 package com.softwaremill.sql
 
 import com.softwaremill.sql.TrackType.TrackType
-import org.flywaydb.core.Flyway
-import slick.basic.StaticDatabaseConfig
 import slick.jdbc.{GetResult, JdbcBackend, JdbcProfile, PostgresProfile}
 import slick.jdbc.JdbcBackend._
 import slick.sql.SqlAction
@@ -76,6 +74,7 @@ trait Queries extends Schema {
     runAndLogResults("All city names with population over 4M", query, query)
   }
 
+  // many-to-one
   def selectMetroSystemsWithCityNames(): Future[Unit] = {
     case class MetroSystemWithCity(metroSystemName: String, cityName: String, dailyRidership: Int)
 
@@ -112,13 +111,13 @@ trait Queries extends Schema {
     runAndLogResults("Metro lines sorted by station count", sqlQuery, query)
   }
 
-  def selectMetroSystemsWithMostLines(): Future[Unit] = {
-    case class MetrySystemWithLineCount(metroSystemName: String, cityName: String, lineCount: Int)
+  // we can extract and re-use common joins
+  lazy val joinLinesToSystemsAndCities = metroLines
+    .join(metroSystems).on(_.systemId === _.id)
+    .join(cities).on(_._2.cityId === _.id)
 
-    // we can extract common joins
-    val joinLinesToSystemsAndCities = metroLines
-      .join(metroSystems).on(_.systemId === _.id)
-      .join(cities).on(_._2.cityId === _.id)
+  def selectMetroSystemsWithMostLines(): Future[Unit] = {
+    case class MetroSystemWithLineCount(metroSystemName: String, cityName: String, lineCount: Int)
 
     val sqlQuery = joinLinesToSystemsAndCities
       .groupBy { case ((_, ms), c) => (ms.id, c.id, ms.name, c.name) }
@@ -126,9 +125,49 @@ trait Queries extends Schema {
       .sortBy(_._3.desc)
       .result
 
-    val query = sqlQuery.map(_.map(MetrySystemWithLineCount.tupled))
+    val query = sqlQuery.map(_.map(MetroSystemWithLineCount.tupled))
 
     runAndLogResults("Metro systems with most lines", sqlQuery, query)
+  }
+
+  // one-to-many
+  def selectCitiesWithSystemsAndLines(): Future[Unit] = {
+    case class CityWithSystems(id: CityId, name: String, population: Int, area: Float, link: Option[String], systems: Seq[MetroSystemWithLines])
+    case class MetroSystemWithLines(id: MetroSystemId, cityId: CityId, name: String, dailyRidership: Int, lines: Seq[MetroLine])
+
+    val sqlQuery = joinLinesToSystemsAndCities.result
+
+    val query = sqlQuery.map(_
+      .groupBy(_._2)
+      .map { case (c, linesSystemsCities) =>
+        val systems = linesSystemsCities.map(_._1).groupBy(_._2)
+            .map { case (s, linesSystems) =>
+            MetroSystemWithLines(s.id, s.cityId, s.name, s.dailyRidership, linesSystems.map(_._1))
+          }
+        CityWithSystems(c.id, c.name, c.population, c.area, c.link, systems.toSeq)
+      })
+      .map(_.toSeq)
+
+    runAndLogResults("Cities with list of systems with list of lines", sqlQuery, query)
+  }
+
+  // http://stackoverflow.com/questions/31869919/dynamic-query-conditions-slick-3-0
+  def selectLinesConstrainedDynamically(): Future[Unit] = {
+    val minStations: Option[Int] = Some(2)
+    val maxStations: Option[Int] = None
+    val sortDesc: Boolean = true
+
+    val query = metroLines
+      .filter { line =>
+        List(
+          minStations.map(line.stationCount >= _),
+          maxStations.map(line.stationCount <= _)
+        ).flatten.reduceLeftOption(_ && _).getOrElse(true: LiteralColumn[Boolean])
+      }
+      .sortBy(l => if (sortDesc) l.stationCount.desc else l.stationCount.asc)
+      .result
+
+    runAndLogResults("Lines constrained dynamically", query, query)
   }
 
   def plainSql(): Future[Unit] = {
@@ -197,6 +236,8 @@ object SlickTests extends App with Schema with DbSetup with Queries {
       _ <- selectMetroSystemsWithCityNames()
       _ <- selectMetroLinesSortedByStations()
       _ <- selectMetroSystemsWithMostLines()
+      _ <- selectCitiesWithSystemsAndLines()
+      _ <- selectLinesConstrainedDynamically()
       _ <- plainSql()
       //_ <- typeCheckedPlainSql()
     } yield ()
