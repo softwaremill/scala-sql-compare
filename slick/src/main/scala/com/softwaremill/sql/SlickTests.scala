@@ -11,26 +11,6 @@ import scala.concurrent.{Await, Future}
 import scala.concurrent.duration._
 import scala.concurrent.ExecutionContext.Implicits.global
 
-//
-
-case class CityId(id: Int) extends AnyVal
-case class City(id: CityId, name: String, population: Int, area: Float, link: Option[String])
-
-case class MetroSystemId(id: Int) extends AnyVal
-case class MetroSystem(id: MetroSystemId, cityId: CityId, name: String, dailyRidership: Int)
-
-case class MetroLineId(id: Int) extends AnyVal
-case class MetroLine(id: MetroLineId, systemId: MetroSystemId, name: String, stationCount: Int, trackType: TrackType)
-
-object TrackType extends Enumeration {
-  type TrackType = Value
-  val Rail = Value(1)
-  val Monorail = Value(2)
-  val Rubber = Value(3)
-}
-
-//
-
 trait Schema {
   val jdbcProfile: JdbcProfile
 
@@ -70,17 +50,6 @@ trait Schema {
     def * = (id, systemId, name, stationCount, trackType) <> (MetroLine.tupled, MetroLine.unapply)
   }
   lazy val metroLines = TableQuery[MetroLines]
-}
-
-trait DbSetup {
-  def connectionString: String
-
-  def dbSetup(): Unit = {
-    val flyway = new Flyway()
-    flyway.setDataSource(connectionString, null, null)
-    flyway.clean()
-    flyway.migrate()
-  }
 }
 
 trait Queries extends Schema {
@@ -215,12 +184,10 @@ trait Queries extends Schema {
 }
 
 object SlickTests extends App with Schema with DbSetup with Queries {
-  val connectionString = "jdbc:postgresql:sql_compare"
+  dbSetup()
 
   val db = Database.forURL(connectionString, driver = "org.postgresql.Driver")
   val jdbcProfile = PostgresProfile
-
-  dbSetup()
 
   try {
     val tests = for {
