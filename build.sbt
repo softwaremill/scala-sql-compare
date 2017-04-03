@@ -34,8 +34,16 @@ lazy val doobie = (project in file("doobie"))
   .settings(commonSettings)
   .settings(
     libraryDependencies ++= Seq(
-      "org.tpolecat" %% "doobie-core-cats" % "0.4.1",
       "org.tpolecat" %% "doobie-postgres-cats" % "0.4.1"
+    )
+  )
+  .dependsOn(common)
+
+lazy val quill = (project in file("quill"))
+  .settings(commonSettings)
+  .settings(
+    libraryDependencies ++= Seq(
+      "io.getquill" %% "quill-async-postgres" % "1.1.0"
     )
   )
   .dependsOn(common)
