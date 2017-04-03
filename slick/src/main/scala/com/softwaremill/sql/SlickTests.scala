@@ -153,7 +153,7 @@ trait Queries extends Schema {
 
   // http://stackoverflow.com/questions/31869919/dynamic-query-conditions-slick-3-0
   def selectLinesConstrainedDynamically(): Future[Unit] = {
-    val minStations: Option[Int] = Some(2)
+    val minStations: Option[Int] = Some(10)
     val maxStations: Option[Int] = None
     val sortDesc: Boolean = true
 

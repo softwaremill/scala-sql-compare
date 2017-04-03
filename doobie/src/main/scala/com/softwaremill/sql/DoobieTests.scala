@@ -122,6 +122,26 @@ object DoobieTests extends App with DbSetup {
     runAndLogResults("Cities with list of systems with list of lines", program)
   }
 
+  def selectLinesConstrainedDynamically(): Unit = {
+    val minStations: Option[Int] = Some(10)
+    val maxStations: Option[Int] = None
+    val sortDesc: Boolean = true
+
+    val baseFr = fr"select id, system_id, name, station_count, track_type from metro_line"
+
+    val minStationsFr = minStations.map(m => fr"station_count >= $m")
+    val maxStationsFr = maxStations.map(m => fr"station_count <= $m")
+    val whereFr = List(minStationsFr, maxStationsFr).flatten.reduceLeftOption(_ ++ _)
+      .map(reduced => fr"where" ++ reduced) 
+      .getOrElse(fr"")
+
+    val sortFr = fr"order by station_count" ++ (if (sortDesc) fr"desc" else fr"asc")
+
+    val program = (baseFr ++ whereFr ++ sortFr).query[MetroLine].list
+
+    runAndLogResults("Lines constrained dynamically", program)
+  }
+
   def checkQuery(): Unit = {
     println("Analyzing query for correctness")
 
@@ -145,5 +165,6 @@ object DoobieTests extends App with DbSetup {
   selectMetroLinesSortedByStations()
   selectMetroSystemsWithMostLines()
   selectCitiesWithSystemsAndLines()
+  selectLinesConstrainedDynamically()
   checkQuery()
 }
