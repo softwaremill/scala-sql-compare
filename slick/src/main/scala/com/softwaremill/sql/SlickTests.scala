@@ -56,7 +56,7 @@ trait Queries extends Schema {
 
   import jdbcProfile.api._
 
-  def insertWithId(): Future[Unit] = {
+  def insertWithGeneratedId(): Future[Unit] = {
     val insertQuery = (cities returning cities.map(_.id)) += City(CityId(0), "New York", 19795791, 141300, None)
     db.run(insertQuery).map { r =>
       println(s"Inserted, generated id: $r")
@@ -83,7 +83,7 @@ trait Queries extends Schema {
     } yield (ms.name, c.name, ms.dailyRidership)).result
 
     val query = sqlQuery.map(_.map(MetroSystemWithCity.tupled))
-    
+
     runAndLogResults("Metro systems with city names", sqlQuery, query)
   }
 
@@ -230,7 +230,7 @@ object SlickTests extends App with Schema with DbSetup with Queries {
 
   try {
     val tests = for {
-      _ <- insertWithId()
+      _ <- insertWithGeneratedId()
       _ <- selectAll()
       _ <- selectNamesOfBig()
       _ <- selectMetroSystemsWithCityNames()
