@@ -11,7 +11,7 @@ lazy val commonSettings = Seq(
 
 lazy val scalaSqlCompare = (project in file("."))
   .settings(commonSettings)
-  .aggregate(slick, doobie)
+  .aggregate(slick, doobie, quill)
 
 lazy val common = (project in file("common"))
   .settings(commonSettings)
