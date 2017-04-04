@@ -1,6 +1,7 @@
 package com.softwaremill.sql
 
 import com.softwaremill.sql.TrackType.TrackType
+import slick.dbio.Effect.Write
 import slick.jdbc.{GetResult, JdbcBackend, JdbcProfile, PostgresProfile}
 import slick.jdbc.JdbcBackend._
 import slick.sql.SqlAction
@@ -200,6 +201,27 @@ trait Queries extends Schema {
   }
   */
 
+  def transactions(): Future[Unit] = {
+    def insertCity(name: String, population: Int, area: Float, link: Option[String]): DBIOAction[CityId, NoStream, Write] =
+      (cities returning cities.map(_.id)) += City(CityId(0), name, population, area, link)
+
+    def deleteCity(id: CityId): DBIOAction[Int, NoStream, Write] =
+      cities.filter(_.id === id).delete
+
+    val insertAndDelete = for {
+      inserted <- insertCity("Invalid", 0, 0, None)
+      deleted <- deleteCity(inserted)
+    } yield deleted
+
+    val result = db.run(insertAndDelete.transactionally)
+
+    result.map { r =>
+      println("Transactions")
+      println(s"Deleted $r rows")
+      println()
+    }
+  }
+
   /**
     * @param sqlQuery The "raw" sql query (without result mapping) is needed to log the generated SQL.
     */
@@ -240,6 +262,7 @@ object SlickTests extends App with Schema with DbSetup with Queries {
       _ <- selectLinesConstrainedDynamically()
       _ <- plainSql()
       //_ <- typeCheckedPlainSql()
+      _ <- transactions()
     } yield ()
 
     Await.result(tests, 1.minute)

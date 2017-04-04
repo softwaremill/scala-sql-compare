@@ -18,13 +18,13 @@ object DoobieTests extends App with DbSetup {
       id => TrackType.values.find(_.id == id).getOrElse(throw new IllegalArgumentException(s"Unknown track type: $id")),
       _.id)
 
-  def insertWithGeneratedId(): Unit = {
-    def insertCity(name: String, population: Int, area: Float, link: Option[String]): ConnectionIO[City] = {
-      sql"insert into city(name, population, area, link) values ($name, $population, $area, $link)"
-        .update.withUniqueGeneratedKeys[CityId]("id")
-        .map(id => City(id, name, population, area, link))
-    }
+  def insertCity(name: String, population: Int, area: Float, link: Option[String]): ConnectionIO[City] = {
+    sql"insert into city(name, population, area, link) values ($name, $population, $area, $link)"
+      .update.withUniqueGeneratedKeys[CityId]("id")
+      .map(id => City(id, name, population, area, link))
+  }
 
+  def insertWithGeneratedId(): Unit = {
     val result = insertCity("New York", 19795791, 141300, None).transact(xa).unsafePerformIO
     println(s"Inserted, generated id: ${result.id}")
     println()
@@ -142,6 +142,20 @@ object DoobieTests extends App with DbSetup {
     runAndLogResults("Lines constrained dynamically", program)
   }
 
+  def transactions(): Unit = {
+    def deleteCity(id: CityId): ConnectionIO[Int] = sql"delete from city where id = $id".update.run
+
+    val insertAndDelete = for {
+      inserted <- insertCity("Invalid", 0, 0, None)
+      deleted <- deleteCity(inserted.id)
+    } yield deleted
+
+    println("Transactions")
+    val deletedCount = insertAndDelete.transact(xa).unsafePerformIO
+    println(s"Deleted $deletedCount rows")
+    println()
+  }
+
   def checkQuery(): Unit = {
     println("Analyzing query for correctness")
 
@@ -166,5 +180,6 @@ object DoobieTests extends App with DbSetup {
   selectMetroSystemsWithMostLines()
   selectCitiesWithSystemsAndLines()
   selectLinesConstrainedDynamically()
+  transactions()
   checkQuery()
 }
