@@ -109,7 +109,49 @@ object ScalikejdbcTests extends App with DbSetup {
     }.map(metroLineSQL.apply(_, ml.resultName)).list()
 
     runAndLogResults("All lines", p)
-  }  
+  }
+
+  def selectNamesOfBig(): Unit = {
+    val bigLimit = 4000000
+
+    val c = citySQL.syntax("c")
+    val p = withSQL {
+      select.from(citySQL as c).where.gt(c.population, bigLimit)
+    }.map(citySQL.apply(_, c.resultName)).list()
+
+    runAndLogResults("All city names with population over 4M", p)
+  }
+
+  def selectMetroSystemsWithCityNames(): Unit = {
+    case class MetroSystemWithCity(metroSystemName: String, cityName: String, dailyRidership: Int)
+
+    val (ms, c) = (metroSystemSQL.syntax("ms"), citySQL.syntax("c"))
+    val p = withSQL {
+      select(ms.result.column("name"), c.result.column("name"), ms.result.dailyRidership)
+        .from(metroSystemSQL as ms).leftJoin(citySQL as c).on(ms.cityId, c.id)
+    }.map(rs => MetroSystemWithCity(rs.string(ms.resultName.name), rs.string(c.resultName.name), rs.int(ms.resultName.dailyRidership)))
+      .list()
+
+    runAndLogResults("Metro systems with city names", p)
+  }
+
+  def selectMetroLinesSortedByStations(): Unit = {
+    case class MetroLineWithSystemCityNames(metroLineName: String, metroSystemName: String, cityName: String, stationCount: Int)
+
+    val (ml, ms, c) = (metroLineSQL.syntax("ml"), metroSystemSQL.syntax("ms"), citySQL.syntax("c"))
+    val p = withSQL {
+      select(ml.result.column("name"), ms.result.column("name"), c.result.column("name"), ml.result.stationCount)
+        .from(metroLineSQL as ml)
+        .join(metroSystemSQL as ms).on(ml.systemId, ms.id)
+        .join(citySQL as c).on(ms.cityId, c.id)
+        .orderBy(ml.stationCount).desc
+    }
+      .map(rs => MetroLineWithSystemCityNames(rs.string(ml.resultName.name), rs.string(ms.resultName.name),
+        rs.string(c.resultName.name), rs.int(ml.resultName.stationCount)))
+      .list()
+
+    runAndLogResults("Metro lines sorted by station count", p)
+  }
 
   def runAndLogResults[R](label: String, program: SQLToList[R, HasExtractor]): Unit = {
     println(label)
@@ -122,4 +164,7 @@ object ScalikejdbcTests extends App with DbSetup {
   insertWithGeneratedId()
   selectAll()
   selectAllLines()
+  selectNamesOfBig()
+  selectMetroSystemsWithCityNames()
+  selectMetroLinesSortedByStations()
 }
