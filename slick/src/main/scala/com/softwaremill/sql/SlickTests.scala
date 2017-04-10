@@ -133,7 +133,7 @@ trait Queries extends Schema {
   // one-to-many
   def selectCitiesWithSystemsAndLines(): Future[Unit] = {
     case class CityWithSystems(id: CityId, name: String, population: Int, area: Float, link: Option[String], systems: Seq[MetroSystemWithLines])
-    case class MetroSystemWithLines(id: MetroSystemId, cityId: CityId, name: String, dailyRidership: Int, lines: Seq[MetroLine])
+    case class MetroSystemWithLines(id: MetroSystemId, name: String, dailyRidership: Int, lines: Seq[MetroLine])
 
     val sqlQuery = joinLinesToSystemsAndCities.result
 
@@ -142,7 +142,7 @@ trait Queries extends Schema {
       .map { case (c, linesSystemsCities) =>
         val systems = linesSystemsCities.map(_._1).groupBy(_._2)
             .map { case (s, linesSystems) =>
-            MetroSystemWithLines(s.id, s.cityId, s.name, s.dailyRidership, linesSystems.map(_._1))
+            MetroSystemWithLines(s.id, s.name, s.dailyRidership, linesSystems.map(_._1))
           }
         CityWithSystems(c.id, c.name, c.population, c.area, c.link, systems.toSeq)
       })

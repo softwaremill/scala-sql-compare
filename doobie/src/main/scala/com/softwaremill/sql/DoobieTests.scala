@@ -95,7 +95,7 @@ object DoobieTests extends App with DbSetup {
 
   def selectCitiesWithSystemsAndLines(): Unit = {
     case class CityWithSystems(id: CityId, name: String, population: Int, area: Float, link: Option[String], systems: Seq[MetroSystemWithLines])
-    case class MetroSystemWithLines(id: MetroSystemId, cityId: CityId, name: String, dailyRidership: Int, lines: Seq[MetroLine])
+    case class MetroSystemWithLines(id: MetroSystemId, name: String, dailyRidership: Int, lines: Seq[MetroLine])
 
     val program = sql"""
       SELECT c.id, c.name, c.population, c.area, c.link, ms.id, ms.city_id, ms.name, ms.daily_ridership, ml.id, ml.system_id, ml.name, ml.station_count, ml.track_type
@@ -110,7 +110,7 @@ object DoobieTests extends App with DbSetup {
           .map { case (c, citiesSystemsLines) =>
             val systems = citiesSystemsLines.groupBy(_._2)
               .map { case (s, systemsLines) =>
-                MetroSystemWithLines(s.id, s.cityId, s.name, s.dailyRidership, systemsLines.map(_._3))
+                MetroSystemWithLines(s.id, s.name, s.dailyRidership, systemsLines.map(_._3))
               }
             CityWithSystems(c.id, c.name, c.population, c.area, c.link, systems.toSeq)
           }
