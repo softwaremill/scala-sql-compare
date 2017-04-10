@@ -18,8 +18,7 @@ trait Schema {
   implicit lazy val cityIdColumnType = MappedColumnType.base[CityId, Int](_.id, CityId)
   implicit lazy val metroSystemIdColumnType = MappedColumnType.base[MetroSystemId, Int](_.id, MetroSystemId)
   implicit lazy val metroLineIdColumnType = MappedColumnType.base[MetroLineId, Int](_.id, MetroLineId)
-  implicit lazy val trackTypeColumnType = MappedColumnType.base[TrackType, Int](_.id,
-    id => TrackType.values.find(_.id == id).getOrElse(throw new IllegalArgumentException(s"Unknown track type: $id")))
+  implicit lazy val trackTypeColumnType = MappedColumnType.base[TrackType, Int](_.id, TrackType.byIdOrThrow)
 
   class Cities(tag: Tag) extends Table[City](tag, "city") {
     def id = column[CityId]("id", O.PrimaryKey, O.AutoInc)

@@ -15,9 +15,7 @@ object QuillTests extends App with DbSetup {
   import ctx._
 
   implicit val encodeTrackType = MappedEncoding[TrackType, Int](_.id)
-  implicit val decodeTrackType = MappedEncoding[Int, TrackType] { id =>
-    TrackType.values.find(_.id == id).getOrElse(throw new IllegalArgumentException(s"Unknown track type: $id"))
-  }
+  implicit val decodeTrackType = MappedEncoding[Int, TrackType](TrackType.byIdOrThrow)
 
   // note: we can use pure case classes, except for embedded values, which need to extend Embedded
 

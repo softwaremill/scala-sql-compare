@@ -11,7 +11,7 @@ lazy val commonSettings = Seq(
 
 lazy val scalaSqlCompare = (project in file("."))
   .settings(commonSettings)
-  .aggregate(slick, doobie, quill)
+  .aggregate(slick, doobie, quill, scalikejdbc)
 
 lazy val common = (project in file("common"))
   .settings(commonSettings)
@@ -44,6 +44,17 @@ lazy val quill = (project in file("quill"))
   .settings(
     libraryDependencies ++= Seq(
       "io.getquill" %% "quill-async-postgres" % "1.1.0"
+    )
+  )
+  .dependsOn(common)
+
+lazy val scalikejdbc = (project in file("scalikejdbc"))
+  .settings(commonSettings)
+  .settings(
+    libraryDependencies ++= Seq(
+      "org.scalikejdbc" %% "scalikejdbc" % "2.5.1",
+      "org.scalikejdbc" %% "scalikejdbc-syntax-support-macro" % "2.5.1",
+      "ch.qos.logback" % "logback-classic" % "1.2.3"
     )
   )
   .dependsOn(common)

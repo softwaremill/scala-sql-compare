@@ -14,9 +14,7 @@ object DoobieTests extends App with DbSetup {
     "org.postgresql.Driver", "jdbc:postgresql:sql_compare", null, null)
 
   implicit val trackTypeMeta: Meta[TrackType] =
-    Meta[Int].xmap(
-      id => TrackType.values.find(_.id == id).getOrElse(throw new IllegalArgumentException(s"Unknown track type: $id")),
-      _.id)
+    Meta[Int].xmap(TrackType.byIdOrThrow, _.id)
 
   def insertCity(name: String, population: Int, area: Float, link: Option[String]): ConnectionIO[City] = {
     sql"insert into city(name, population, area, link) values ($name, $population, $area, $link)"
@@ -132,7 +130,7 @@ object DoobieTests extends App with DbSetup {
     val minStationsFr = minStations.map(m => fr"station_count >= $m")
     val maxStationsFr = maxStations.map(m => fr"station_count <= $m")
     val whereFr = List(minStationsFr, maxStationsFr).flatten.reduceLeftOption(_ ++ _)
-      .map(reduced => fr"where" ++ reduced) 
+      .map(reduced => fr"where" ++ reduced)
       .getOrElse(fr"")
 
     val sortFr = fr"order by station_count" ++ (if (sortDesc) fr"desc" else fr"asc")
@@ -161,7 +159,7 @@ object DoobieTests extends App with DbSetup {
 
     import xa.yolo._
     sql"select name from city".query[String].check.unsafePerformIO
-    
+
     println()
   }
 

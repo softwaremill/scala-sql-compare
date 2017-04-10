@@ -16,4 +16,7 @@ object TrackType extends Enumeration {
   val Rail = Value(1)
   val Monorail = Value(2)
   val Rubber = Value(3)
+
+  def byId(id: Int): Option[TrackType] = TrackType.values.find(_.id == id)
+  def byIdOrThrow(id: Int): TrackType = byId(id).getOrElse(throw new IllegalArgumentException(s"Unknown track type: $id"))
 }
