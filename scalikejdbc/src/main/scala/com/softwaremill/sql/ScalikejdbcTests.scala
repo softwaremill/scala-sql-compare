@@ -153,6 +153,58 @@ object ScalikejdbcTests extends App with DbSetup {
     runAndLogResults("Metro lines sorted by station count", p)
   }
 
+  def selectMetroSystemsWithMostLines(): Unit = {
+    case class MetroSystemWithLineCount(metroSystemName: String, cityName: String, lineCount: Int)
+
+    val (ml, ms, c) = (metroLineSQL.syntax("ml"), metroSystemSQL.syntax("ms"), citySQL.syntax("c"))
+    val p = withSQL {
+      select(ms.result.column("name"), c.result.column("name"), c.result.column("name"), sqls"count(ml.id) as line_count")
+        .from(metroLineSQL as ml)
+        .join(metroSystemSQL as ms).on(ml.systemId, ms.id)
+        .join(citySQL as c).on(ms.cityId, c.id)
+        .groupBy(ms.id, c.id)
+        .orderBy(sqls"line_count").desc
+    }
+      .map(rs => MetroSystemWithLineCount(rs.string(ms.resultName.name), rs.string(c.resultName.name),
+        rs.int("line_count")))
+      .list()
+
+    runAndLogResults("Metro systems with most lines", p)
+  }
+
+  def selectCitiesWithSystemsAndLines(): Unit = {
+    case class SystemWithLines(cityId: CityId, cityName: String, population: Int, area: Float, link: Option[String],
+      systemId: MetroSystemId, systemName: String, dailyRidership: Int, lines: Seq[MetroLine])
+
+    case class CityWithSystems(id: CityId, name: String, population: Int, area: Float, link: Option[String], systems: Seq[MetroSystemWithLines])
+    case class MetroSystemWithLines(id: MetroSystemId, name: String, dailyRidership: Int, lines: Seq[MetroLine])
+
+    val (ml, ms, c) = (metroLineSQL.syntax("ml"), metroSystemSQL.syntax("ms"), citySQL.syntax("c"))
+    val p: SQLToList[SystemWithLines, HasExtractor] = withSQL {
+      select
+        .from(metroLineSQL as ml)
+        .join(metroSystemSQL as ms).on(ml.systemId, ms.id)
+        .join(citySQL as c).on(ms.cityId, c.id)
+    }
+      .one(rs => SystemWithLines(CityId(rs.int(c.resultName.id)), rs.string(c.resultName.name), rs.int(c.resultName.population),
+        rs.float(c.resultName.area), rs.stringOpt(c.resultName.link), MetroSystemId(rs.int(ms.resultName.id)), rs.string(ms.resultName.name),
+        rs.int(ms.resultName.dailyRidership), Nil))
+      .toMany(rs => Some(metroLineSQL(rs, ml.resultName)))
+      .map { (cws, mls) => cws.copy(lines = mls.toList) }
+      .list()
+
+    println("Cities with list of systems with list of lines")
+    db.readOnly { implicit session =>
+      p.apply()
+        .groupBy(swl => CityWithSystems(swl.cityId, swl.cityName, swl.population, swl.area, swl.link, Nil))
+        .map { case (cws, swls) =>
+          cws.copy(systems = swls.map(swl => MetroSystemWithLines(swl.systemId, swl.systemName, swl.dailyRidership, swl.lines)))
+        }
+        .foreach(println)
+    }
+    println()
+  }
+
   def runAndLogResults[R](label: String, program: SQLToList[R, HasExtractor]): Unit = {
     println(label)
     db.readOnly { implicit session =>
@@ -167,4 +219,6 @@ object ScalikejdbcTests extends App with DbSetup {
   selectNamesOfBig()
   selectMetroSystemsWithCityNames()
   selectMetroLinesSortedByStations()
+  selectMetroSystemsWithMostLines()
+  selectCitiesWithSystemsAndLines()
 }
