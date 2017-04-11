@@ -14,7 +14,7 @@ object ScalikejdbcTests extends App with DbSetup {
   GlobalSettings.loggingSQLAndTime = LoggingSQLAndTimeSettings(enabled = true, singleLineMode = true, logLevel = 'INFO)
 
   //
-  
+
   implicit val cityIdTypeBinder: TypeBinder[CityId] = new TypeBinder[CityId] {
     def apply(rs: ResultSet, label: String): CityId = CityId(rs.getInt(label))
     def apply(rs: ResultSet, index: Int): CityId = CityId(rs.getInt(index))
@@ -205,6 +205,43 @@ object ScalikejdbcTests extends App with DbSetup {
     println()
   }
 
+  def selectLinesConstrainedDynamically(): Unit = {
+    val minStations: Option[Int] = Some(10)
+    val maxStations: Option[Int] = None
+    val sortDesc: Boolean = true
+
+    val ml = metroLineSQL.syntax("ml")
+    val p = withSQL {
+      // can't assign to a val, as the [A] is "lost" and causes compilation errors
+      select.from(metroLineSQL as ml)
+        .where(sqls.toAndConditionOpt(
+          minStations.map(ms => sqls.ge(ml.stationCount, ms)),
+          maxStations.map(ms => sqls.le(ml.stationCount, ms))
+        ))
+        .orderBy(ml.stationCount)
+        .append(if (sortDesc) sqls"desc" else sqls"asc")
+    }.map(metroLineSQL.apply(_, ml.resultName)).list()
+
+    runAndLogResults("Lines constrained dynamically", p)
+  }
+
+  def transactions(): Unit = {
+    def deleteCity(id: CityId)(implicit session: DBSession): Int = {
+      withSQL {
+        val c = citySQL.syntax("c")
+        delete.from(citySQL as c).where.eq(c.id, id.id)
+      }.update().apply()
+    }
+
+    println("Transactions")
+    val deletedCount = db.localTx { implicit session =>
+      val inserted = insertCity("Invalid", 0, 0, None)
+      deleteCity(inserted.id)
+    }
+    println(s"Deleted $deletedCount rows")
+    println()
+  }
+
   def runAndLogResults[R](label: String, program: SQLToList[R, HasExtractor]): Unit = {
     println(label)
     db.readOnly { implicit session =>
@@ -221,4 +258,6 @@ object ScalikejdbcTests extends App with DbSetup {
   selectMetroLinesSortedByStations()
   selectMetroSystemsWithMostLines()
   selectCitiesWithSystemsAndLines()
+  selectLinesConstrainedDynamically()
+  transactions()
 }
