@@ -3,8 +3,8 @@ package com.softwaremill.sql
 import com.softwaremill.sql.TrackType.TrackType
 import io.getquill.{PostgresAsyncContext, SnakeCase}
 
-import scala.concurrent.{Await, Future}
-import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.{Await, ExecutionContext, Future}
+import scala.concurrent.ExecutionContext.Implicits.{ global => ec } // making tx-scoped ECs work
 import scala.concurrent.duration._
 
 object QuillTests extends App with DbSetup {
@@ -194,6 +194,27 @@ object QuillTests extends App with DbSetup {
     logResults("Plain sql", result)
   }
 
+  def transactions(): Future[Unit] = {
+    def insert(c: City)(implicit ec: ExecutionContext): Future[City] = ctx.run {
+      query[City].insert(lift(c)).returning(_.id)
+    }.map(id => c.copy(id = id))
+
+    def delete(id: CityId)(implicit ec: ExecutionContext): Future[Long] = ctx.run {
+      query[City].filter(_.id == lift(id)).delete
+    }
+
+    println("Transactions")
+    ctx.transaction { implicit ec =>
+      for {
+        inserted <- insert(City(CityId(0), "Invalid", 0, 0, None))
+        deleted <- delete(inserted.id)
+      } yield {
+        println(s"Deleted $deleted rows")
+        println()
+      }
+    }
+  }
+
   private def logResults[R](label: String, f: Future[Seq[R]]): Future[Unit] = {
     f.map { r =>
       println(label)
@@ -213,6 +234,7 @@ object QuillTests extends App with DbSetup {
     _ <- selectCitiesWithSystemsAndLines()
     _ <- selectLinesConstrainedDynamically()
     //_ <- plainSql()
+    _ <- transactions()
   } yield ()
 
   try Await.result(tests, 1.minute)
