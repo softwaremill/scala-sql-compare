@@ -43,6 +43,7 @@ lazy val quill = (project in file("quill"))
   .settings(commonSettings)
   .settings(
     libraryDependencies ++= Seq(
+      "ch.qos.logback" % "logback-classic" % "1.2.3",
       "io.getquill" %% "quill-async-postgres" % "1.1.0"
     )
   )
