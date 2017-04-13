@@ -172,23 +172,25 @@ object QuillTests extends App with DbSetup {
     logResults("Lines constrained dynamically", ctx.run(q))
   }
 
-  // fails at run-time as it tries to read the metro_system_name column, despite the schema meta
+  // fails at run-time as it tries to read the x._1 column
   def plainSql(): Future[Unit] = {
     case class MetroSystemWithCity(metroSystemName: String, cityName: String, dailyRidership: Int)
 
+    /* Also fails when we try to use .as[Query[MetroSystemWithCity]] with a schema
     implicit val metroSystemWithCityMeta = schemaMeta[MetroSystemWithCity]("metro_system",
       _.metroSystemName -> "ms_name",
       _.cityName -> "c_name",
       _.dailyRidership -> "daily_ridership")
+    */
 
     val q = quote {
       infix"""SELECT ms.name as ms_name, c.name as c_name, ms.daily_ridership as daily_ridership
         FROM metro_system as ms
         JOIN city AS c ON ms.city_id = c.id
-        ORDER BY ms.daily_ridership DESC""".as[Query[MetroSystemWithCity]]
+        ORDER BY ms.daily_ridership DESC""".as[Query[(String, String, Int)]]
     }
 
-    val result = ctx.run(q)
+    val result = ctx.run(q).map(_.map(MetroSystemWithCity.tupled))
 
     logResults("Plain sql", result)
   }
