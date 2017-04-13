@@ -161,13 +161,12 @@ object QuillTests extends App with DbSetup {
       (ml: MetroLine) => ml.stationCount <= lift(limit)
     }).getOrElse(allFilter)
 
-    // doesn't compile didn't find a way to dynamically define sort ordering
-    //val sortOrder = if (sortDesc) Ord.desc[Int] else Ord.asc[Int]
+    val sortOrder = if (sortDesc) quote { Ord.desc[Int] } else quote { Ord.asc[Int] }
 
     val q = quote {
       query[MetroLine]
         .filter(ml => minFilter(ml) && maxFilter(ml))
-        //.sortBy(_.stationCount)()
+        .sortBy(_.stationCount)(sortOrder)
     }
 
     logResults("Lines constrained dynamically", ctx.run(q))
