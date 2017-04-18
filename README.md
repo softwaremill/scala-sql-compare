@@ -1,0 +1,1 @@
+Source code for the blog: [Comparing Scala relational database access libraries](https://softwaremill.com/comparing-scala-relational-database-access-libraries/)
