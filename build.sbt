@@ -6,7 +6,7 @@ name := "scala-sql-compare"
 lazy val commonSettings = Seq(
   organization := "com.softwaremill",
   version := "1.0-SNAPSHOT",
-  scalaVersion := "2.11.8"
+  scalaVersion := "2.11.11"
 )
 
 lazy val scalaSqlCompare = (project in file("."))
@@ -53,8 +53,8 @@ lazy val scalikejdbc = (project in file("scalikejdbc"))
   .settings(commonSettings)
   .settings(
     libraryDependencies ++= Seq(
-      "org.scalikejdbc" %% "scalikejdbc" % "2.5.1",
-      "org.scalikejdbc" %% "scalikejdbc-syntax-support-macro" % "2.5.1",
+      "org.scalikejdbc" %% "scalikejdbc" % "3.0.1",
+      "org.scalikejdbc" %% "scalikejdbc-syntax-support-macro" % "3.0.1",
       "ch.qos.logback" % "logback-classic" % "1.2.3"
     )
   )
