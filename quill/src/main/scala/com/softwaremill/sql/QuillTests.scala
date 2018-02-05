@@ -10,7 +10,7 @@ import scala.concurrent.duration._
 object QuillTests extends App with DbSetup {
   dbSetup()
 
-  lazy val ctx = new PostgresAsyncContext[SnakeCase]("ctx")
+  lazy val ctx = new PostgresAsyncContext(SnakeCase, "ctx")
 
   import ctx._
 
@@ -90,16 +90,14 @@ object QuillTests extends App with DbSetup {
         ((ml, ms), c) <- query[MetroLine]
           .join(query[MetroSystem]).on(_.systemId == _.id)
           .join(query[City]).on(_._2.cityId == _.id)
-      } yield (ml.name, ms.name, c.name, ml.stationCount)).sortBy(_._4)(Ord.desc)
+      } yield MetroLineWithSystemCityNames(ml.name, ms.name, c.name, ml.stationCount)).sortBy(_.stationCount)(Ord.desc)
     }
 
-    val result = ctx.run(q).map(_.map(MetroLineWithSystemCityNames.tupled))
+    val result = ctx.run(q)
 
     logResults("Metro lines sorted by station count", result)
   }
 
-  /*
-  Doesn't compile.
   def selectMetroSystemsWithMostLines(): Future[Unit] = {
     case class MetroSystemWithLineCount(metroSystemName: String, cityName: String, lineCount: Long)
 
@@ -108,16 +106,21 @@ object QuillTests extends App with DbSetup {
         ((ml, ms), c) <- query[MetroLine]
           .join(query[MetroSystem]).on(_.systemId == _.id)
           .join(query[City]).on(_._2.cityId == _.id)
+        /* Causes a run-time error:
+        (ml, ms) <- query[MetroLine].join(query[MetroSystem]).on(_.systemId == _.id)
+        c <- query[City].join(_.id == ms.cityId)
+        */
       } yield (ml, ms, c))
         .groupBy { case (ml, ms, c) => (ms.id, c.id, ms.name, c.name) }
-        .map { case ((msId, cId, msName, cName), aggregated) => (msName, cName, aggregated.size) }
+        .map { case ((msId, cId, msName, cName), aggregated) =>
+          MetroSystemWithLineCount(msName, cName, aggregated.size)
+        }
     }
 
-    val result = ctx.run(q).map(_.map(MetroSystemWithLineCount.tupled))
+    val result = ctx.run(q)
 
     logResults("Metro systems with most lines", result)
   }
-  */
 
   def selectCitiesWithSystemsAndLines(): Future[Unit] = {
     case class CityWithSystems(id: CityId, name: String, population: Int, area: Float, link: Option[String], systems: Seq[MetroSystemWithLines])
@@ -208,6 +211,27 @@ object QuillTests extends App with DbSetup {
     }
   }
 
+  def transactionsIO(): Future[Unit] = {
+    def insert(c: City)(implicit ec: ExecutionContext): IO[City, Effect.Write] = ctx.runIO {
+      query[City].insert(lift(c)).returning(_.id)
+    }.map(id => c.copy(id = id))
+
+    def delete(id: CityId)(implicit ec: ExecutionContext): IO[Long, Effect.Write] = ctx.runIO {
+      query[City].filter(_.id == lift(id)).delete
+    }
+
+    val combined = for {
+      inserted <- insert(City(CityId(0), "Invalid", 0, 0, None))
+      deleted <- delete(inserted.id)
+    } yield {
+      println(s"Deleted $deleted rows")
+      println()
+    }
+
+    println("Transactions with IO")
+    performIO(combined.transactional)
+  }
+
   private def logResults[R](label: String, f: Future[Seq[R]]): Future[Unit] = {
     f.map { r =>
       println(label)
@@ -223,11 +247,12 @@ object QuillTests extends App with DbSetup {
     _ <- selectNamesOfBig()
     _ <- selectMetroSystemsWithCityNames()
     _ <- selectMetroLinesSortedByStations()
-    //_ <- selectMetroSystemsWithMostLines()
+    _ <- selectMetroSystemsWithMostLines()
     _ <- selectCitiesWithSystemsAndLines()
     _ <- selectLinesConstrainedDynamically()
     _ <- plainSql()
     _ <- transactions()
+    _ <- transactionsIO()
   } yield ()
 
   try Await.result(tests, 1.minute)

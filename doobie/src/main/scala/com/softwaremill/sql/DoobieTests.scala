@@ -157,7 +157,8 @@ object DoobieTests extends App with DbSetup {
   def checkQuery(): Unit = {
     println("Analyzing query for correctness")
 
-    import xa.yolo._
+    val yolo = xa.yolo
+    import yolo._
     sql"select name from city".query[String].check.unsafePerformIO
 
     println()
