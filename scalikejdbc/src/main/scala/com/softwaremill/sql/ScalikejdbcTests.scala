@@ -11,8 +11,7 @@ object ScalikejdbcTests extends App with DbSetup {
   ConnectionPool.add('tests, "jdbc:postgresql:sql_compare", "postgres", "")
   def db: NamedDB = NamedDB('tests)
 
-  // Uncommenting the below causes an NPE to be thrown
-  //GlobalSettings.loggingSQLAndTime = LoggingSQLAndTimeSettings(enabled = true, singleLineMode = true, logLevel = 'INFO)
+  GlobalSettings.loggingSQLAndTime = LoggingSQLAndTimeSettings(enabled = true, singleLineMode = true, logLevel = 'INFO)
 
   //
 

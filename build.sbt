@@ -53,8 +53,8 @@ lazy val scalikejdbc = (project in file("scalikejdbc"))
   .settings(commonSettings)
   .settings(
     libraryDependencies ++= Seq(
-      "org.scalikejdbc" %% "scalikejdbc" % "3.2.0",
-      "org.scalikejdbc" %% "scalikejdbc-syntax-support-macro" % "3.2.0",
+      "org.scalikejdbc" %% "scalikejdbc" % "3.2.1",
+      "org.scalikejdbc" %% "scalikejdbc-syntax-support-macro" % "3.2.1",
       "ch.qos.logback" % "logback-classic" % "1.2.3"
     )
   )
