@@ -34,7 +34,7 @@ lazy val doobie = (project in file("doobie"))
   .settings(commonSettings)
   .settings(
     libraryDependencies ++= Seq(
-      "org.tpolecat" %% "doobie-postgres-cats" % "0.4.4"
+      "org.tpolecat" %% "doobie-postgres" % "0.5.0"
     )
   )
   .dependsOn(common)

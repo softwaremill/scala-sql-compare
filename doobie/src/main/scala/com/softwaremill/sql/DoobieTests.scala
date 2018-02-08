@@ -1,16 +1,14 @@
 package com.softwaremill.sql
 
-import doobie.imports._
-import cats._
-import cats.data._
-import cats.implicits._
 import com.softwaremill.sql.TrackType.TrackType
-import fs2.interop.cats._
+import doobie._
+import doobie.implicits._
+import cats.effect.IO
 
 object DoobieTests extends App with DbSetup {
   dbSetup()
 
-  val xa = DriverManagerTransactor[IOLite](
+  val xa = Transactor.fromDriverManager[IO](
     "org.postgresql.Driver", "jdbc:postgresql:sql_compare", null, null)
 
   implicit val trackTypeMeta: Meta[TrackType] =
@@ -23,7 +21,7 @@ object DoobieTests extends App with DbSetup {
   }
 
   def insertWithGeneratedId(): Unit = {
-    val result = insertCity("New York", 19795791, 141300, None).transact(xa).unsafePerformIO
+    val result = insertCity("New York", 19795791, 141300, None).transact(xa).unsafeRunSync()
     println(s"Inserted, generated id: ${result.id}")
     println()
   }
@@ -31,7 +29,7 @@ object DoobieTests extends App with DbSetup {
   def selectAll(): Unit = {
     val program = sql"select id, name, population, area, link from city"
       .query[City]
-      .list
+      .to[List]
 
     runAndLogResults("All cities", program)
   }
@@ -39,7 +37,7 @@ object DoobieTests extends App with DbSetup {
   def selectAllLines(): Unit = {
     val program = sql"select id, system_id, name, station_count, track_type from metro_line"
       .query[MetroLine]
-      .list
+      .to[List]
 
     runAndLogResults("All lines", program)
   }
@@ -49,7 +47,7 @@ object DoobieTests extends App with DbSetup {
 
     val program = sql"select id, name, population, area, link from city where population > $bigLimit"
       .query[City]
-      .list
+      .to[List]
 
     runAndLogResults("All city names with population over 4M", program)
   }
@@ -59,7 +57,7 @@ object DoobieTests extends App with DbSetup {
 
     val program = sql"select ms.name, c.name, ms.daily_ridership from metro_system as ms left join city as c on ms.city_id = c.id"
       .query[MetroSystemWithCity]
-      .list
+      .to[List]
 
     runAndLogResults("Metro systems with city names", program)
   }
@@ -73,7 +71,7 @@ object DoobieTests extends App with DbSetup {
         JOIN metro_system as ms on ml.system_id = ms.id
         JOIN city AS c ON ms.city_id = c.id
         ORDER BY ml.station_count DESC
-      """.query[MetroLineWithSystemCityNames].list
+      """.query[MetroLineWithSystemCityNames].to[List]
 
     runAndLogResults("Metro lines sorted by station count", program)
   }
@@ -88,7 +86,7 @@ object DoobieTests extends App with DbSetup {
         JOIN city AS c ON ms.city_id = c.id
         GROUP BY ms.id, c.id
         ORDER BY line_count DESC
-      """.query[MetroSystemWithLineCount].list
+      """.query[MetroSystemWithLineCount].to[List]
 
     runAndLogResults("Metro systems with most lines", program)
   }
@@ -104,7 +102,7 @@ object DoobieTests extends App with DbSetup {
         JOIN city AS c ON ms.city_id = c.id
       """
       .query[(City, MetroSystem, MetroLine)]
-      .list
+      .to[List]
       .map { results =>
         results.groupBy(_._1)
           .map { case (c, citiesSystemsLines) =>
@@ -135,7 +133,7 @@ object DoobieTests extends App with DbSetup {
 
     val sortFr = fr"order by station_count" ++ (if (sortDesc) fr"desc" else fr"asc")
 
-    val program = (baseFr ++ whereFr ++ sortFr).query[MetroLine].list
+    val program = (baseFr ++ whereFr ++ sortFr).query[MetroLine].to[List]
 
     runAndLogResults("Lines constrained dynamically", program)
   }
@@ -149,7 +147,7 @@ object DoobieTests extends App with DbSetup {
     } yield deleted
 
     println("Transactions")
-    val deletedCount = insertAndDelete.transact(xa).unsafePerformIO
+    val deletedCount = insertAndDelete.transact(xa).unsafeRunSync()
     println(s"Deleted $deletedCount rows")
     println()
   }
@@ -159,14 +157,14 @@ object DoobieTests extends App with DbSetup {
 
     val yolo = xa.yolo
     import yolo._
-    sql"select name from city".query[String].check.unsafePerformIO
+    sql"select name from city".query[String].check.unsafeRunSync()
 
     println()
   }
 
   def runAndLogResults[R](label: String, program: ConnectionIO[List[R]]): Unit = {
     println(label)
-    program.transact(xa).unsafePerformIO.foreach(println)
+    program.transact(xa).unsafeRunSync().foreach(println)
     println()
   }
 
