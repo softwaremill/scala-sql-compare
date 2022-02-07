@@ -4,21 +4,20 @@ import com.dimafeng.testcontainers.SingleContainer
 import com.dimafeng.testcontainers.PostgreSQLContainer
 import org.testcontainers.utility.DockerImageName
 import zio._
-import zio.blocking.{ effectBlocking, Blocking }
 
 object TestContainer {
 
-  def container[C <: SingleContainer[_]: Tag](c: C): ZLayer[Blocking, Throwable, Has[C]] =
+  def container[C <: SingleContainer[_]: Tag](c: C): ZLayer[Any, Throwable, C] =
     ZManaged.make {
-      effectBlocking {
+      ZIO.effectBlocking {
         c.start()
         c
       }
-    }(container => effectBlocking(container.stop()).orDie).toLayer
+    }(container => ZIO.effectBlocking(container.stop()).orDie).toLayer
 
-  def postgres(imageName: String = "postgres:alpine"): ZLayer[Blocking, Throwable, Has[PostgreSQLContainer]] =
+  def postgres(imageName: String = "postgres:alpine"): ZManaged[Any, Throwable, PostgreSQLContainer] =
     ZManaged.make {
-      effectBlocking {
+      ZIO.effectBlocking {
         val c = new PostgreSQLContainer(
           dockerImageNameOverride = Option(imageName).map(DockerImageName.parse)
         ).configure { a =>
@@ -29,7 +28,7 @@ object TestContainer {
         c
       }
     } { container =>
-      effectBlocking(container.stop()).orDie
-    }.toLayer
+      ZIO.effectBlocking(container.stop()).orDie
+    }
 
 }

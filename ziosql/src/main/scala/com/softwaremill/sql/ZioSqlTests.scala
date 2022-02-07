@@ -2,15 +2,11 @@ package com.softwaremill.sql
 
 import zio.sql.postgresql.PostgresModule
 import zio._
-import zio.clock._
-import zio.console._
 import zio.sql.ConnectionPoolConfig
 import zio.sql.ConnectionPool
 import java.util.Properties
-import zio.blocking.Blocking
 import org.flywaydb.core.Flyway
 import java.io.IOException
-import zio.duration.Duration
 import java.util.concurrent.TimeUnit
 
 trait TableModel extends PostgresModule { 
@@ -20,31 +16,28 @@ trait TableModel extends PostgresModule {
     val city = (int("id") ++ string("name") ++ 
         int("population") ++ float("area") ++ string("link")).table("city")
 
-    val cityId :*: cityName :*: population :*: area :*: link :*: _ = city.columns
-
+    val (cityId, cityName, population, area, link) = city.columns
 
     val metroSystem = (int("id") ++ int("city_id") ++ int("name") ++ int("daily_ridership")).table("metro_system")
 
-    val metroSystemId :*: cityIdFk :*: metroSystemName :*: dailyRidership :*: _ = metroSystem.columns
+    val (metroSystemId, cityIdFk, metroSystemName, dailyRidership) = metroSystem.columns
 
-    
     val metroLine = (int("id") ++ int("system_id") ++ string("name") ++ int("station_count") ++ int("track_type")).table("metro_line")
 
-    val metroLineId :*: systemId :*: metroLineName :*: stationCount :*: trackType :*: _ = metroLine.columns
+    val (metroLineId, systemId, metroLineName, stationCount, trackType) = metroLine.columns
 }
 
-object ZioSqlTests extends zio.App with TableModel {
+object ZioSqlTests extends ZIOAppDefault with TableModel {
 
-    val poolConfigLayer = Blocking.live >+> TestContainer
+    val poolConfigLayer = TestContainer
         .postgres()
         .map(a =>
-            Has(
-                ConnectionPoolConfig(
-                url = a.get.jdbcUrl,
-                properties = connProperties(a.get.username, a.get.password),
-                )
+            ConnectionPoolConfig(
+                url = a.jdbcUrl,
+                properties = connProperties(a.username, a.password),
             )
         )
+        .toLayer
 
     private def connProperties(user: String, password: String): Properties = {
       val props = new Properties
@@ -53,26 +46,23 @@ object ZioSqlTests extends zio.App with TableModel {
       props
     }
 
-    final lazy val executorLayer = {
-        val connectionPoolLayer: ZLayer[Blocking with Clock, Throwable, Has[ConnectionPool]] =
-            ((Blocking.any >+> poolConfigLayer) ++ Clock.any) >>> ConnectionPool.live
-
-        (Blocking.any ++ connectionPoolLayer >+> SqlDriver.live).orDie
-    }
+    final lazy val driverLayer = ZLayer.make[SqlDriver](
+        poolConfigLayer,
+        ConnectionPool.live,
+        Clock.live,
+        SqlDriver.live
+    )
 
     import AggregationDef._
     import Ordering._
 
-    def run(args: List[String]): URIO[ZEnv, ExitCode] = 
+    def run = 
         (for {
-            i   <- execute(insertQuery)
+            i       <- execute(insertQuery)
             cities  <- executeCities(citiesBiggerThan(0))
-          //  _   <- ZIO.sleep(Duration.apply(10, TimeUnit.SECONDS)).provideLayer(Clock.live)
-            _    <- putStrLn(s"Cities: \n ${cities.mkString("\n")}")
-        } yield ()).provideCustomLayer(executorLayer).exitCode
+            _       <- Console.printLine(s"Cities: \n ${cities.mkString("\n")}")
+        } yield ()).provideCustomLayer(driverLayer)
         
-
-      val x =   select(cityId ++ cityName ++ population ++ area ++ link).from(city)
 
     // SIMPLE
 
@@ -83,8 +73,8 @@ object ZioSqlTests extends zio.App with TableModel {
         select(cityId ++ cityName ++ population ++ area ++ link)
             .from(city)
             .where(population > people)
-            .to[Int, String, Int, Float, String, City]{
-                (id, name, pop, area, link) =>
+            .to {
+                case (id, name, pop, area, link) =>
                     City(CityId(id), name, pop, area, Option(link))
             }   
 
@@ -150,10 +140,9 @@ object ZioSqlTests extends zio.App with TableModel {
         cities <- ZTransaction(citiesBiggerThan(8000000))
     } yield (cities)
 
-    val cities: ZIO[Has[SqlDriver],Exception,Chunk[City]] = execute(transaction)
+    val cities: ZIO[SqlDriver, Exception, Chunk[City]] = execute(transaction)
         .use(stream => stream.runCollect)
         
-
     //PLAIN SQL
 
     val complexQuerySql = renderRead(complexQuery)
