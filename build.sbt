@@ -66,7 +66,8 @@ lazy val ziosql = (project in file("ziosql"))
     // resolvers +=
     //   "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots",
     libraryDependencies ++= Seq(
-      "dev.zio" %% "zio-sql-postgres" % "0.0.0+1004-0bda0210+20220207-1356-SNAPSHOT",
+      // TODO add here real version after release
+      "dev.zio" %% "zio-sql-postgres" % "0.0.0+1062-e429ff03-SNAPSHOT",
       "dev.zio" %% "zio" % "2.0.0-RC2",
       "dev.zio" %% "zio-schema" % "0.1.7",
       "dev.zio" %% "zio-schema-derivation" % "0.1.7",
