@@ -63,11 +63,8 @@ lazy val scalikejdbc = (project in file("scalikejdbc"))
 lazy val ziosql = (project in file("ziosql"))
   .settings(commonSettings)
   .settings(
-    // resolvers +=
-    //   "Sonatype OSS Snapshots" at "https://oss.sonatype.org/content/repositories/snapshots",
     libraryDependencies ++= Seq(
-      // TODO add here real version after release
-      "dev.zio" %% "zio-sql-postgres" % "0.0.0+1062-e429ff03-SNAPSHOT",
+      "dev.zio" %% "zio-sql-postgres" % "0.0.1",
       "dev.zio" %% "zio" % "2.0.0-RC2",
       "dev.zio" %% "zio-schema" % "0.1.7",
       "dev.zio" %% "zio-schema-derivation" % "0.1.7",
