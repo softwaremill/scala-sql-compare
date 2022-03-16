@@ -77,8 +77,8 @@ object ZioSqlTests extends ZIOAppDefault with TableModel {
             _                          <- execute(insertCity(CityId(4)))
             bigCities                  <- executeCities(citiesBiggerThan(0))
             _                          <- ZIO.logInfo(s"Big cities: \n ${bigCities.mkString("\n")}")
-            transactionCities          <- citiesTransaction
-            _                          <- ZIO.logInfo(s"All cities after transaction: \n ${transactionCities.mkString("\n")}")
+            rows                       <- deletedRows.useNow
+            _                          <- ZIO.logInfo(s"Rows deleted: ${rows}")
             _                          <- ZIO.logInfo(s"Rendered complex query: \n ${complexQuerySql} \n")
             _                          <- ZIO.logInfo(s"Rendered insert query : \n ${insertSql} \n")
         } yield ()).provideCustomLayer(driverLayer)
@@ -160,21 +160,19 @@ object ZioSqlTests extends ZIOAppDefault with TableModel {
 
     // TRANSACTIONS
 
-    val i = CityId(4)
+    val id = CityId(5)
 
-    val transaction = for {
-        _      <- ZTransaction(deleteCity(i))
-        _      <- ZTransaction(insertCity(i))
-        cities <- ZTransaction(citiesBiggerThan(8000000))
-    } yield (cities)
+    val transaction: ZTransaction[Any, Exception, Int] = for {
+        _    <- ZTransaction(insertCity(id))
+        rows <- ZTransaction(deleteCity(id))
+    } yield (rows)
 
-    val citiesTransaction: ZIO[SqlDriver, Exception, Chunk[City]] = execute(transaction)
-        .use(stream => stream.runCollect)
+    val deletedRows: ZManaged[SqlDriver, Exception, Int] = execute(transaction)
         
     // render to PLAIN SQL
 
     val complexQuerySql = renderRead(complexQuery)
-    val insertSql = renderInsert(insertCity(i))
+    val insertSql = renderInsert(insertCity(id))
 
     // OTHER EXAMPLES
 

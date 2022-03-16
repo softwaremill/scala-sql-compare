@@ -4,6 +4,9 @@ import com.dimafeng.testcontainers.SingleContainer
 import com.dimafeng.testcontainers.PostgreSQLContainer
 import org.testcontainers.utility.DockerImageName
 import zio._
+import org.testcontainers.ext.ScriptUtils
+import org.testcontainers.jdbc.JdbcDatabaseDelegate
+import org.flywaydb.core.Flyway
 
 object TestContainer {
 
@@ -20,15 +23,14 @@ object TestContainer {
       ZIO.effectBlocking {
         val c = new PostgreSQLContainer(
           dockerImageNameOverride = Option(imageName).map(DockerImageName.parse)
-        ).configure { a =>
-          a.withInitScript("init.sql")
-          ()
-        }
+        )
         c.start()
+        val flyway = new Flyway()
+        flyway.setDataSource(c.container.getJdbcUrl(), c.container.getUsername(), c.container.getPassword())
+        flyway.migrate()
         c
       }
     } { container =>
       ZIO.effectBlocking(container.stop()).orDie
     }
-
 }
