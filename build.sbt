@@ -6,12 +6,12 @@ name := "scala-sql-compare"
 lazy val commonSettings = Seq(
   organization := "com.softwaremill",
   version := "1.0-SNAPSHOT",
-  scalaVersion := "2.12.4"
+  scalaVersion := "2.12.15"
 )
 
 lazy val scalaSqlCompare = (project in file("."))
   .settings(commonSettings)
-  .aggregate(slick, doobie, quill, scalikejdbc)
+  .aggregate(slick, doobie, quill, scalikejdbc, ziosql)
 
 lazy val common = (project in file("common"))
   .settings(commonSettings)
@@ -56,6 +56,20 @@ lazy val scalikejdbc = (project in file("scalikejdbc"))
       "org.scalikejdbc" %% "scalikejdbc" % "3.2.1",
       "org.scalikejdbc" %% "scalikejdbc-syntax-support-macro" % "3.2.1",
       "ch.qos.logback" % "logback-classic" % "1.2.3"
+    )
+  )
+  .dependsOn(common)
+
+lazy val ziosql = (project in file("ziosql"))
+  .settings(commonSettings)
+  .settings(
+    libraryDependencies ++= Seq(
+      "dev.zio" %% "zio-sql-postgres" % "0.0.1",
+      "dev.zio" %% "zio" % "2.0.0-RC2",
+      "dev.zio" %% "zio-schema" % "0.1.7",
+      "dev.zio" %% "zio-schema-derivation" % "0.1.7",
+      "org.postgresql"     % "postgresql"                      % "42.2.24"                  % Compile,
+      "com.dimafeng"      %% "testcontainers-scala-postgresql" % "0.39.12"
     )
   )
   .dependsOn(common)
